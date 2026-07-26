@@ -1,0 +1,531 @@
+openapi: 3.1.0
+
+info:
+  title: CaYa Coding Agent Bridge
+  version: 0.1.1
+  description: Operates on the coding workspace explicitly exposed by a running CaYa Agent session.
+
+servers:
+  - url: https://bridge.example.com
+
+paths:
+  /v1/workspace/info:
+    post:
+      operationId: getWorkspaceInfo
+      summary: Get the connected workspace and capabilities.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+      responses:
+        "200":
+          description: Workspace information.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      version: { type: string }
+                      workspace: { type: string }
+                      workspaceName: { type: string }
+                      platform: { type: string }
+                      hostname: { type: string }
+                      terminalEnabled: { type: boolean }
+                      allowedExecutables:
+                        type: array
+                        items: { type: string }
+                    additionalProperties: true
+
+  /v1/workspace/tree:
+    post:
+      operationId: getWorkspaceTree
+      summary: List files and directories in the connected workspace.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                path:
+                  type: string
+                  description: Workspace-relative directory.
+                depth:
+                  type: integer
+                  minimum: 0
+                  maximum: 8
+                  default: 4
+                maxEntries:
+                  type: integer
+                  minimum: 1
+                  maximum: 3000
+                  default: 800
+      responses:
+        "200":
+          description: Workspace tree.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      root: { type: string }
+                      entries:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            path: { type: string }
+                            type:
+                              type: string
+                              enum: [file, directory, symlink]
+                            size: { type: integer }
+                          additionalProperties: true
+                      truncated: { type: boolean }
+                    additionalProperties: true
+
+  /v1/file/read:
+    post:
+      operationId: readWorkspaceFile
+      summary: Read a text file or selected line range from the workspace.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret, path]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                path: { type: string }
+                startLine:
+                  type: integer
+                  minimum: 1
+                endLine:
+                  type: integer
+                  minimum: 1
+                maxChars:
+                  type: integer
+                  minimum: 1000
+                  maximum: 75000
+                  default: 60000
+      responses:
+        "200":
+          description: File contents and metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      path: { type: string }
+                      sha256: { type: string }
+                      totalLines: { type: integer }
+                      startLine: { type: integer }
+                      endLine: { type: integer }
+                      content: { type: string }
+                      truncated: { type: boolean }
+                    additionalProperties: true
+
+  /v1/file/search:
+    post:
+      operationId: searchWorkspaceText
+      summary: Search text across workspace files.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret, query]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                query: { type: string }
+                path: { type: string }
+                extensions:
+                  type: array
+                  items: { type: string }
+                caseSensitive:
+                  type: boolean
+                  default: false
+                maxResults:
+                  type: integer
+                  minimum: 1
+                  maximum: 200
+                  default: 50
+      responses:
+        "200":
+          description: Search results.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            path: { type: string }
+                            line: { type: integer }
+                            text: { type: string }
+                          additionalProperties: true
+                      truncated: { type: boolean }
+                    additionalProperties: true
+
+  /v1/file/create:
+    post:
+      operationId: createWorkspaceFile
+      summary: Create a text file inside the connected workspace.
+      x-openai-isConsequential: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret, path, content]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                path: { type: string }
+                content: { type: string }
+                overwrite:
+                  type: boolean
+                  default: false
+      responses:
+        "200":
+          description: File creation result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      path: { type: string }
+                      bytes: { type: integer }
+                      sha256: { type: string }
+                      snapshot: { type: string }
+                    additionalProperties: true
+
+  /v1/file/replace:
+    post:
+      operationId: replaceWorkspaceText
+      summary: Replace an exact text block in a workspace file.
+      x-openai-isConsequential: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret, path, oldText, newText]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                path: { type: string }
+                oldText: { type: string }
+                newText: { type: string }
+                expectedSha256:
+                  type: string
+                  description: SHA-256 returned by readWorkspaceFile.
+                replaceAll:
+                  type: boolean
+                  default: false
+      responses:
+        "200":
+          description: File replacement result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      path: { type: string }
+                      oldSha256: { type: string }
+                      sha256: { type: string }
+                      snapshot: { type: string }
+                    additionalProperties: true
+
+  /v1/file/delete:
+    post:
+      operationId: deleteWorkspaceFile
+      summary: Move a workspace file into the recoverable agent trash.
+      x-openai-isConsequential: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret, path]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                path: { type: string }
+                expectedSha256: { type: string }
+      responses:
+        "200":
+          description: File deletion result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      deleted: { type: string }
+                      recoverableAt: { type: string }
+                    additionalProperties: true
+
+  /v1/terminal/start:
+    post:
+      operationId: startWorkspaceCommand
+      summary: Start one allow-listed executable and return a job.
+      x-openai-isConsequential: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret, executable]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                executable:
+                  type: string
+                  description: Bare executable name from the local agent allow-list.
+                args:
+                  type: array
+                  maxItems: 100
+                  items: { type: string }
+                cwd:
+                  type: string
+                  description: Workspace-relative working directory.
+                timeoutSeconds:
+                  type: integer
+                  minimum: 1
+                  maximum: 3600
+                  default: 600
+      responses:
+        "200":
+          description: Command job creation result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      status: { type: string }
+                      executable: { type: string }
+                      args:
+                        type: array
+                        items: { type: string }
+                      cwd: { type: string }
+                      startedAt: { type: string }
+                      stdout: { type: string }
+                      stderr: { type: string }
+                      truncated: { type: boolean }
+                    additionalProperties: true
+
+  /v1/terminal/result:
+    post:
+      operationId: getWorkspaceCommandResult
+      summary: Get status and captured output for a command job.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret, jobId]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                jobId: { type: string }
+      responses:
+        "200":
+          description: Command status and output.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      status: { type: string }
+                      executable: { type: string }
+                      args:
+                        type: array
+                        items: { type: string }
+                      cwd: { type: string }
+                      startedAt: { type: string }
+                      finishedAt: { type: string }
+                      exitCode: { type: integer }
+                      signal: { type: string }
+                      stdout: { type: string }
+                      stderr: { type: string }
+                      truncated: { type: boolean }
+                    additionalProperties: true
+
+  /v1/terminal/cancel:
+    post:
+      operationId: cancelWorkspaceCommand
+      summary: Cancel a running command job.
+      x-openai-isConsequential: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret, jobId]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                jobId: { type: string }
+      responses:
+        "200":
+          description: Command cancellation result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      status: { type: string }
+                      executable: { type: string }
+                      cwd: { type: string }
+                      stdout: { type: string }
+                      stderr: { type: string }
+                      truncated: { type: boolean }
+                    additionalProperties: true
+
+  /v1/git/status:
+    post:
+      operationId: getGitStatus
+      summary: Read git status for the connected workspace.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                cwd: { type: string }
+      responses:
+        "200":
+          description: Git status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      exitCode: { type: integer }
+                      stdout: { type: string }
+                      stderr: { type: string }
+                    additionalProperties: true
+
+  /v1/git/diff:
+    post:
+      operationId: getGitDiff
+      summary: Read the current unstaged git diff.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, sessionSecret]
+              properties:
+                sessionId: { type: string }
+                sessionSecret: { type: string }
+                cwd: { type: string }
+                path: { type: string }
+      responses:
+        "200":
+          description: Git diff.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      exitCode: { type: integer }
+                      stdout: { type: string }
+                      stderr: { type: string }
+                    additionalProperties: true

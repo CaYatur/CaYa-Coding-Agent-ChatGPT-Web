@@ -1,0 +1,11 @@
+{
+  "bridge": "https://bridge.example.com",
+  "workspace": "D:/GitHub/MyProject",
+  "allowTerminal": false,
+  "allowedExecutables": [
+    "git", "node", "npm", "npx", "pnpm", "yarn",
+    "python", "python3", "py", "pytest",
+    "dotnet", "cargo", "go", "java", "javac", "gradle", "mvn",
+    "cmake", "make"
+  ]
+}

@@ -1,0 +1,20 @@
+[Unit]
+Description=CaYa Coding Agent Bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=caya-bridge
+Group=caya-bridge
+WorkingDirectory=/opt/CaYaCodingAgent
+Environment=HOST=127.0.0.1
+Environment=PORT=8787
+ExecStart=/usr/bin/node /opt/CaYaCodingAgent/bridge/server.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

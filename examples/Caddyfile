@@ -1,0 +1,14 @@
+# Dedicated hostname example:
+# agent.example.com {
+#     reverse_proxy 127.0.0.1:8787
+# }
+
+# Existing website path example.
+# Merge this handle_path block into your existing site's Caddyfile.
+example.com {
+    handle_path /caya-agent/* {
+        reverse_proxy 127.0.0.1:8787
+    }
+
+    # Keep your existing website handlers below/around this as appropriate.
+}
